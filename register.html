@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CineNow — Registro</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header>
+  <a href="index.html" style="text-decoration:none"><h1 class="logo">🎬 CineNow</h1></a>
+  <nav><ul>
+    <li><a href="index.html">Principal</a></li>
+    <li><a href="cartelera.html">Cartelera</a></li>
+    <li><a href="regiones.html">Regiones</a></li>
+    <li><a href="contacto.html">Contacto</a></li>
+  </ul></nav>
+</header>
+
+<section class="hero hero-xs">
+  <div class="hero-content">
+    <h2>Crear cuenta</h2>
+    <p>Únete para dejar reseñas y calificar películas.</p>
+  </div>
+</section>
+
+<div class="auth-container">
+  <h2>📋 Registro</h2>
+  <div class="error-msg" id="errorMsg"></div>
+  <div class="form-group">
+    <label>Nombre completo</label>
+    <input type="text" id="nombre" placeholder="Tu nombre">
+  </div>
+  <div class="form-group">
+    <label>Correo electrónico</label>
+    <input type="email" id="email" placeholder="tu@email.com">
+  </div>
+  <div class="form-group">
+    <label>Contraseña</label>
+    <input type="password" id="password" placeholder="Mínimo 6 caracteres">
+  </div>
+  <div class="form-group">
+    <label>Confirmar contraseña</label>
+    <input type="password" id="confirm" placeholder="Repite tu contraseña">
+  </div>
+  <button class="auth-btn" onclick="registrar()">Crear cuenta</button>
+  <div class="auth-links" style="margin-top:16px">
+    ¿Ya tienes cuenta? <a href="login.html">Inicia sesión</a>
+  </div>
+</div>
+
+<footer>🎬 2026 CineNow.</footer>
+<script src="js/db.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  await DB.init();
+  await actualizarNav();
+  if (DB.isLoggedIn()) window.location.href = 'index.html';
+});
+
+async function registrar() {
+  const nombre = document.getElementById('nombre').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const confirm = document.getElementById('confirm').value;
+  const err = document.getElementById('errorMsg');
+  err.style.display = 'none';
+  if (!nombre || !email || !password) { err.textContent = 'Completa todos los campos.'; err.style.display = 'block'; return; }
+  if (password.length < 6) { err.textContent = 'La contraseña debe tener al menos 6 caracteres.'; err.style.display = 'block'; return; }
+  if (password !== confirm) { err.textContent = 'Las contraseñas no coinciden.'; err.style.display = 'block'; return; }
+  try {
+    const u = await DB.registrarUsuario(nombre, email, password);
+    toast('¡Cuenta creada! Bienvenido, ' + u.nombre.split(' ')[0]);
+    setTimeout(() => window.location.href = 'index.html', 700);
+  } catch (e) {
+    err.textContent = e.message || 'No se pudo registrar';
+    err.style.display = 'block';
+  }
+}
+</script>
+</body>
+</html>

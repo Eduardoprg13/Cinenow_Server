@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CineNow — Panel Admin</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .log-box{background:#0a0a0a;border:1px solid #1a1a1a;border-radius:8px;padding:16px;height:300px;overflow-y:auto;font-family:monospace;font-size:.82em;line-height:1.7;}
+    .log-line{margin:0;padding:2px 0;}
+    .log-info{color:#60a5fa;}.log-success{color:#34d399;}.log-error{color:#f87171;}.log-warn{color:#fbbf24;}
+    .progress-bar-wrap{background:#1a1a1a;border-radius:6px;height:8px;margin:12px 0;overflow:hidden;}
+    .progress-bar{background:#e50914;height:100%;width:0%;transition:width .4s;border-radius:6px;}
+    .sync-result-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:16px;}
+    .sync-stat{background:#111;border-radius:8px;padding:14px;text-align:center;}
+    .sync-stat .n{font-size:1.8em;font-weight:700;color:#e50914;}
+    .sync-stat .l{color:#888;font-size:.78em;margin-top:4px;}
+  </style>
+</head>
+<body>
+<header>
+  <a href="index.html" style="text-decoration:none"><h1 class="logo">🎬 CineNow</h1></a>
+  <nav><ul>
+    <li><a href="index.html">Principal</a></li>
+    <li><a href="cartelera.html">Cartelera</a></li>
+    <li><a href="regiones.html">Regiones</a></li>
+    <li><a href="contacto.html">Contacto</a></li>
+  </ul></nav>
+</header>
+
+<div class="admin-layout">
+  <aside class="admin-sidebar">
+    <h3>⚙️ Administración</h3>
+    <ul class="admin-nav">
+      <li><a href="#" class="active" data-tab="dashboard">📊 Dashboard</a></li>
+      <li><a href="#" data-tab="peliculas">🎬 Películas</a></li>
+      <li><a href="#" data-tab="cines">🎭 Cines</a></li>
+      <li><a href="#" data-tab="funciones">📅 Funciones</a></li>
+      <li><a href="#" data-tab="usuarios">👤 Usuarios</a></li>
+      <li><a href="#" data-tab="resenas">💬 Reseñas</a></li>
+      <li><a href="#" data-tab="tmdb">🔄 Sync TMDB</a></li>
+    </ul>
+  </aside>
+
+  <main class="admin-main" id="adminMain"></main>
+</div>
+
+<div class="form-modal-overlay" id="formModal">
+  <div class="form-modal">
+    <h3 id="formModalTitle">Formulario</h3>
+    <div id="formModalBody"></div>
+  </div>
+</div>
+
+<footer>🎬 2026 CineNow — Panel de administración.</footer>
+<script src="js/db.js"></script>
+<script src="js/tmdb.js"></script>
+<script>
+let currentTab = 'dashboard';
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await DB.init();
+  if (!DB.isAdmin()) { window.location.href = 'login.html'; return; }
+  await actualizarNav();
+  document.querySelectorAll('.admin-nav a').forEach(a => {
+    a.addEventListener('click', async e => {
+      e.preventDefault();
+      document.querySelectorAll('.admin-nav a').forEach(x => x.classList.remove('active'));
+      a.classList.add('active');
+      currentTab = a.dataset.tab;
+      await loadTab(currentTab);
+    });
+  });
+  document.getElementById('formModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('formModal')) closeFormModal();
+  });
+  await loadTab('dashboard');
+});
+
+async function loadTab(tab) {
+  const main = document.getElementById('adminMain');
+  switch(tab) {
+    case 'dashboard': return renderDashboard(main);
+    case 'peliculas': return renderPeliculas(main);
+    case 'cines': return renderCines(main);
+    case 'funciones': return renderFunciones(main);
+    case 'usuarios': return renderUsuarios(main);
+    case 'resenas': return renderResenas(main);
+    case 'tmdb': return renderTMDB(main);
+  }
+}
+
+async function renderDashboard(el) {
+  const data = await DB.getDashboard();
+  el.innerHTML = `
+    <div class="admin-header"><h2>📊 Dashboard</h2></div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="num">${data.peliculas}</div><div class="lbl">Películas</div></div>
+      <div class="stat-card"><div class="num">${data.cines}</div><div class="lbl">Cines</div></div>
+      <div class="stat-card"><div class="num">${data.funciones}</div><div class="lbl">Funciones</div></div>
+      <div class="stat-card"><div class="num">${data.usuarios}</div><div class="lbl">Usuarios</div></div>
+      <div class="stat-card"><div class="num">${data.resenas}</div><div class="lbl">Reseñas</div></div>
+      <div class="stat-card"><div class="num">${data.cartelera}</div><div class="lbl">En cartelera</div></div>
+    </div>
+    <div style="background:#111;border-radius:10px;padding:20px;">
+      <h3 style="color:#e50914;margin-bottom:14px;font-size:1em;">📋 Películas más reseñadas</h3>
+      ${(data.topResenadas || []).map(p => `
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #1a1a1a;font-size:.88em;">
+          <span>${p.titulo}</span>
+          <span style="color:#aaa">${p.totalResenas} reseñas · ${p.rating ? '⭐' + p.rating : '-'}</span>
+        </div>`).join('') || '<p style="color:#666">Sin reseñas todavía.</p>'}
+    </div>`;
+}
+
+async function renderPeliculas(el) {
+  const pels = await DB.adminList('peliculas');
+  el.innerHTML = `
+    <div class="admin-header">
+      <h2>🎬 Películas (${pels.length})</h2>
+      <button class="btn-add" onclick="openPelForm()">+ Agregar película</button>
+    </div>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead><tr><th>Poster</th><th>Título</th><th>Género</th><th>Clasificación</th><th>Estado</th><th>Año</th><th>Acciones</th></tr></thead>
+        <tbody>
+          ${pels.map(p => `
+            <tr>
+              <td><img src="${p.img || ''}" alt="${p.titulo}" onerror="this.src='https://via.placeholder.com/40x56/111/e50914?text=?'"></td>
+              <td><strong>${p.titulo}</strong></td>
+              <td>${p.genero || '—'}</td>
+              <td>${p.clasificacion || '—'}</td>
+              <td><span class="status-badge status-${p.estado === 'cartelera' ? 'cartelera' : p.estado === 'proximamente' ? 'proximo' : 'inactivo'}">${p.estado}</span></td>
+              <td>${p.anio || '—'}</td>
+              <td>
+                <button class="btn-edit" onclick="openPelForm(${p.id})">✏ Editar</button>
+                <button class="btn-del" onclick="deletePel(${p.id})">🗑 Eliminar</button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function openPelForm(id) {
+  const p = id ? DB.getPelicula(id) : {};
+  document.getElementById('formModalTitle').textContent = id ? 'Editar película' : 'Agregar película';
+  document.getElementById('formModalBody').innerHTML = `
+    <div class="form-row">
+      <div class="form-group"><label>Título *</label><input id="fTitulo" value="${p?.titulo || ''}"></div>
+      <div class="form-group"><label>Género</label>
+        <select id="fGenero"><option value="">Seleccionar</option>
+          ${['Acción','Comedia','Drama','Ciencia Ficción','Terror','Animación','Romance','Documental'].map(g => `<option ${p?.genero === g ? 'selected' : ''}>${g}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Director</label><input id="fDirector" value="${p?.director || ''}"></div>
+      <div class="form-group"><label>Año</label><input id="fAnio" type="number" value="${p?.anio || ''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Duración</label><input id="fDuracion" value="${p?.duracion || ''}" placeholder="ej: 120 min"></div>
+      <div class="form-group"><label>Clasificación</label>
+        <select id="fClasif"><option value="">—</option>
+          ${['A','B','B15','C','D'].map(c => `<option ${p?.clasificacion === c ? 'selected' : ''}>${c}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label>Estado</label>
+      <select id="fEstado">
+        <option value="cartelera" ${p?.estado === 'cartelera' ? 'selected' : ''}>En cartelera</option>
+        <option value="proximamente" ${p?.estado === 'proximamente' ? 'selected' : ''}>Próximamente</option>
+        <option value="inactivo" ${p?.estado === 'inactivo' ? 'selected' : ''}>Inactivo</option>
+      </select>
+    </div>
+    <div class="form-group"><label>URL del Poster (TMDB)</label><input id="fImg" value="${p?.img || ''}" placeholder="https://image.tmdb.org/t/p/w500/..."></div>
+    <div class="form-group"><label>URL del Tráiler (YouTube)</label><input id="fTrailer" value="${p?.trailer || ''}" placeholder="https://www.youtube.com/watch?v=..."></div>
+    <div class="form-group"><label>Descripción</label>
+      <textarea id="fDesc" rows="3" style="width:100%;padding:10px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:6px;color:#fff;font-size:.9em;resize:vertical;">${p?.descripcion || ''}</textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn-save" onclick="savePel(${id || 0})">💾 Guardar</button>
+      <button class="btn-cancel" onclick="closeFormModal()">Cancelar</button>
+    </div>`;
+  document.getElementById('formModal').style.display = 'flex';
+}
+
+async function savePel(id) {
+  const titulo = document.getElementById('fTitulo').value.trim();
+  if (!titulo) { toast('El título es obligatorio', 'error'); return; }
+  const data = {
+    id,
+    titulo,
+    genero: document.getElementById('fGenero').value,
+    director: document.getElementById('fDirector').value.trim(),
+    anio: parseInt(document.getElementById('fAnio').value, 10) || null,
+    duracion: document.getElementById('fDuracion').value.trim(),
+    clasificacion: document.getElementById('fClasif').value,
+    estado: document.getElementById('fEstado').value,
+    img: document.getElementById('fImg').value.trim(),
+    trailer: document.getElementById('fTrailer').value.trim(),
+    descripcion: document.getElementById('fDesc').value.trim(),
+    origen: 'manual'
+  };
+  try {
+    await DB.adminSave('peliculas', data);
+    toast(id ? 'Película actualizada' : 'Película agregada');
+    closeFormModal();
+    await renderPeliculas(document.getElementById('adminMain'));
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function deletePel(id) {
+  if (!confirm('¿Eliminar esta película? También se eliminarán sus funciones y reseñas relacionadas.')) return;
+  try {
+    await DB.adminDelete('peliculas', id);
+    toast('Película eliminada');
+    await renderPeliculas(document.getElementById('adminMain'));
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function renderCines(el) {
+  const cines = await DB.adminList('cines');
+  el.innerHTML = `
+    <div class="admin-header">
+      <h2>🎭 Cines (${cines.length})</h2>
+      <button class="btn-add" onclick="openCineForm()">+ Agregar cine</button>
+    </div>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead><tr><th>Nombre</th><th>Región</th><th>Dirección</th><th>Acciones</th></tr></thead>
+        <tbody>
+          ${cines.map(c => `<tr>
+            <td><strong>${c.nombre}</strong></td>
+            <td>${c.region}</td>
+            <td>${c.direccion || '—'}</td>
+            <td>
+              <button class="btn-edit" onclick="openCineForm(${c.id})">✏ Editar</button>
+              <button class="btn-del" onclick="deleteCine(${c.id})">🗑 Eliminar</button>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function openCineForm(id) {
+  const c = id ? DB.getCine(id) : {};
+  document.getElementById('formModalTitle').textContent = id ? 'Editar cine' : 'Agregar cine';
+  document.getElementById('formModalBody').innerHTML = `
+    <div class="form-group"><label>Nombre del cine *</label><input id="cNombre" value="${c?.nombre || ''}" placeholder="ej: Cinépolis Galerías"></div>
+    <div class="form-group"><label>Región / Ciudad *</label><input id="cRegion" value="${c?.region || ''}" placeholder="ej: CDMX"></div>
+    <div class="form-group"><label>Dirección</label><input id="cDireccion" value="${c?.direccion || ''}" placeholder="Av. Ejemplo 123"></div>
+    <div class="form-actions">
+      <button class="btn-save" onclick="saveCine(${id || 0})">💾 Guardar</button>
+      <button class="btn-cancel" onclick="closeFormModal()">Cancelar</button>
+    </div>`;
+  document.getElementById('formModal').style.display = 'flex';
+}
+
+async function saveCine(id) {
+  const nombre = document.getElementById('cNombre').value.trim();
+  const region = document.getElementById('cRegion').value.trim();
+  const direccion = document.getElementById('cDireccion').value.trim();
+  if (!nombre || !region) { toast('Nombre y región son obligatorios', 'error'); return; }
+  try {
+    await DB.adminSave('cines', { id, nombre, region, direccion, activo: 1 });
+    toast(id ? 'Cine actualizado' : 'Cine agregado');
+    closeFormModal();
+    await renderCines(document.getElementById('adminMain'));
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteCine(id) {
+  if (!confirm('¿Eliminar este cine?')) return;
+  try {
+    await DB.adminDelete('cines', id);
+    toast('Cine eliminado');
+    await renderCines(document.getElementById('adminMain'));
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function renderFunciones(el) {
+  const funcs = await DB.adminList('funciones');
+  const pels = DB.getPeliculas();
+  const cines = DB.getCines();
+  el.innerHTML = `
+    <div class="admin-header">
+      <h2>📅 Funciones (${funcs.length})</h2>
+      <button class="btn-add" onclick="openFuncForm()">+ Agregar función</button>
+    </div>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead><tr><th>Película</th><th>Cine</th><th>Horarios</th><th>Precio</th><th>Acciones</th></tr></thead>
+        <tbody>
+          ${funcs.map(f => `<tr>
+            <td>${f.pelicula?.titulo || '—'}</td>
+            <td>${f.cine?.nombre || '—'}<div style="color:#888;font-size:.78em">${f.cine?.region || ''}</div></td>
+            <td>${(f.horarios || []).join(' · ')}</td>
+            <td>$${Number(f.precio).toFixed(0)} MXN</td>
+            <td>
+              <button class="btn-edit" onclick="openFuncForm(${f.id})">✏ Editar</button>
+              <button class="btn-del" onclick="deleteFunc(${f.id})">🗑 Eliminar</button>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function openFuncForm(id) {
+  const f = id ? DB.getFuncion(id) : {};
+  const pels = DB.getPeliculas().filter(p => p.estado !== 'inactivo');
+  const cines = DB.getCines();
+  document.getElementById('formModalTitle').textContent = id ? 'Editar función' : 'Agregar función';
+  document.getElementById('formModalBody').innerHTML = `
+    <div class="form-group"><label>Película *</label>
+      <select id="fPelId">${pels.map(p => `<option value="${p.id}" ${Number(f?.peliculaId) === Number(p.id) ? 'selected' : ''}>${p.titulo}</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label>Cine *</label>
+      <select id="fCineId">${cines.map(c => `<option value="${c.id}" ${Number(f?.cineId) === Number(c.id) ? 'selected' : ''}>${c.nombre} — ${c.region}</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label>Horarios (separados por coma)</label>
+      <input id="fHorarios" value="${(f?.horarios || []).join(', ')}" placeholder="16:00, 19:30, 22:00">
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Precio (MXN)</label><input id="fPrecio" type="number" value="${f?.precio || 85}" min="0"></div>
+      <div class="form-group"><label>Fecha inicio</label><input id="fFechaI" type="date" value="${f?.fechaInicio || ''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Fecha fin</label><input id="fFechaF" type="date" value="${f?.fechaFin || ''}"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-save" onclick="saveFunc(${id || 0})">💾 Guardar</button>
+      <button class="btn-cancel" onclick="closeFormModal()">Cancelar</button>
+    </div>`;
+  document.getElementById('formModal').style.display = 'flex';
+}
+
+async function saveFunc(id) {
+  const peliculaId = parseInt(document.getElementById('fPelId').value, 10);
+  const cineId = parseInt(document.getElementById('fCineId').value, 10);
+  const horarios = document.getElementById('fHorarios').value.split(',').map(s => s.trim()).filter(Boolean);
+  const precio = parseFloat(document.getElementById('fPrecio').value) || 0;
+  const fechaInicio = document.getElementById('fFechaI').value;
+  const fechaFin = document.getElementById('fFechaF').value;
+  if (!peliculaId || !cineId) { toast('Selecciona película y cine', 'error'); return; }
+  try {
+    await DB.adminSave('funciones', { id, peliculaId, cineId, horarios, precio, fechaInicio, fechaFin });
+    toast(id ? 'Función actualizada' : 'Función agregada');
+    closeFormModal();
+    await renderFunciones(document.getElementById('adminMain'));
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteFunc(id) {
+  if (!confirm('¿Eliminar esta función?')) return;
+  try {
+    await DB.adminDelete('funciones', id);
+    toast('Función eliminada');
+    await renderFunciones(document.getElementById('adminMain'));
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function renderUsuarios(el) {
+  const users = await DB.adminList('usuarios');
+  window._adminUsersCache = users;
+  const sesion = DB.getSession();
+  el.innerHTML = `
+    <div class="admin-header">
+      <h2>👤 Usuarios (${users.length})</h2>
+      <button class="btn-add" onclick="openUserForm()">+ Agregar usuario</button>
+    </div>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Fecha</th><th>Acciones</th></tr></thead>
+        <tbody>
+          ${users.map(u => `<tr>
+            <td><strong>${u.nombre}</strong></td>
+            <td>${u.email}</td>
+            <td>${u.rol}</td>
+            <td>${u.fecha || '—'}</td>
+            <td>
+              <button class="btn-edit" onclick="openUserForm(${u.id})">✏ Editar</button>
+              ${sesion && Number(u.id) !== Number(sesion.id) ? `<button class="btn-del" onclick="deleteUser(${u.id})">🗑 Eliminar</button>` : '<span style="color:#555;font-size:.78em">(sesión actual)</span>'}
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function openUserForm(id) {
+  const user = id ? (window._adminUsersCache || []).find(x => Number(x.id) === Number(id)) : {};
+  document.getElementById('formModalTitle').textContent = id ? 'Editar usuario' : 'Agregar usuario';
+  document.getElementById('formModalBody').innerHTML = `
+    <div class="form-group"><label>Nombre completo *</label><input id="uNombre" value="${user?.nombre || ''}"></div>
+    <div class="form-group"><label>Correo electrónico *</label><input id="uEmail" type="email" value="${user?.email || ''}"></div>
+    <div class="form-group"><label>Contraseña ${id ? '(dejar vacío para no cambiar)' : '*'}</label><input id="uPass" type="password" placeholder="••••••••"></div>
+    <div class="form-group"><label>Rol</label>
+      <select id="uRol"><option value="usuario" ${user?.rol === 'usuario' ? 'selected' : ''}>usuario</option><option value="admin" ${user?.rol === 'admin' ? 'selected' : ''}>admin</option></select>
+    </div>
+    <div class="form-actions">
+      <button class="btn-save" onclick="saveUser(${id || 0})">💾 Guardar</button>
+      <button class="btn-cancel" onclick="closeFormModal()">Cancelar</button>
+    </div>`;
+  document.getElementById('formModal').style.display = 'flex';
+}
+
+async function saveUser(id) {
+  const nombre = document.getElementById('uNombre').value.trim();
+  const email = document.getElementById('uEmail').value.trim();
+  const pass = document.getElementById('uPass').value;
+  const rol = document.getElementById('uRol').value;
+  if (!nombre || !email) { toast('Nombre y correo son obligatorios', 'error'); return; }
+  if (!id && !pass) { toast('La contraseña es obligatoria para nuevos usuarios', 'error'); return; }
+  try {
+    await DB.adminSave('usuarios', { id, nombre, email, password: pass, rol });
+    toast(id ? 'Usuario actualizado' : 'Usuario creado');
+    closeFormModal();
+    await renderUsuarios(document.getElementById('adminMain'));
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteUser(id) {
+  if (!confirm('¿Eliminar este usuario?')) return;
+  try {
+    await DB.adminDelete('usuarios', id);
+    toast('Usuario eliminado');
+    await renderUsuarios(document.getElementById('adminMain'));
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function renderResenas(el) {
+  const resenas = await DB.adminList('resenas');
+  el.innerHTML = `
+    <div class="admin-header"><h2>💬 Reseñas (${resenas.length})</h2></div>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead><tr><th>Película</th><th>Autor</th><th>Rating</th><th>Texto</th><th>Fecha</th><th>Acciones</th></tr></thead>
+        <tbody>
+          ${resenas.map(r => `<tr>
+            <td>${r.pelicula?.titulo || '—'}</td>
+            <td>${r.autor}</td>
+            <td>${r.rating} ★</td>
+            <td style="max-width:300px;white-space:normal">${r.texto}</td>
+            <td>${r.fecha || '—'}</td>
+            <td><button class="btn-del" onclick="delResenaAdmin(${r.id})">🗑 Eliminar</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function delResenaAdmin(id) {
+  if (!confirm('¿Eliminar esta reseña?')) return;
+  try {
+    await DB.deleteResena(id);
+    toast('Reseña eliminada');
+    await renderResenas(document.getElementById('adminMain'));
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function renderTMDB(el) {
+  const info = TMDB.getLastSyncInfo();
+  el.innerHTML = `
+    <div class="admin-header"><h2>🔄 Sincronización TMDB</h2></div>
+    <div style="background:#111;border-radius:12px;padding:18px;margin-bottom:16px;">
+      <p style="color:#bbb;margin-bottom:8px">Sincroniza la cartelera desde TMDB y guarda los cambios en MySQL.</p>
+      <p style="color:#888;font-size:.86em;margin-bottom:12px">${info ? `Última sync: ${info.fecha} ${info.hora} (${info.haceHoras}h)` : 'Sin sincronización previa registrada.'}</p>
+      <button class="btn-add" id="btnSync" onclick="ejecutarSync()">🔄 Sincronizar ahora</button>
+      <div class="progress-bar-wrap"><div class="progress-bar" id="syncProgress"></div></div>
+      <div class="log-box" id="syncLog"><p class="log-line log-info">Listo para sincronizar. Presiona "Sincronizar ahora" para obtener las películas en cartelera en México desde TMDB.</p></div>
+      <div id="syncResults"></div>
+    </div>`;
+}
+
+async function ejecutarSync() {
+  const btn = document.getElementById('btnSync');
+  const logBox = document.getElementById('syncLog');
+  const progress = document.getElementById('syncProgress');
+  const results = document.getElementById('syncResults');
+  if (btn) btn.disabled = true;
+  if (results) results.innerHTML = '';
+  logBox.innerHTML = '';
+  const addLog = (msg, tipo = 'info') => {
+    const p = document.createElement('p');
+    p.className = `log-line log-${tipo}`;
+    p.textContent = msg;
+    logBox.appendChild(p);
+    logBox.scrollTop = logBox.scrollHeight;
+  };
+  try {
+    progress.style.width = '10%';
+    const resumen = await TMDB.sincronizar(addLog);
+    progress.style.width = '100%';
+    results.innerHTML = `
+      <div class="sync-result-grid">
+        <div class="sync-stat"><div class="n">+${resumen.agregadas}</div><div class="l">Nuevas en cartelera</div></div>
+        <div class="sync-stat"><div class="n">+${resumen.proximasAgregadas}</div><div class="l">Próximos estrenos</div></div>
+        <div class="sync-stat"><div class="n">${resumen.actualizadas}</div><div class="l">Actualizadas</div></div>
+        <div class="sync-stat"><div class="n">${resumen.desactivadas}</div><div class="l">Desactivadas</div></div>
+        <div class="sync-stat"><div class="n">${resumen.total}</div><div class="l">Total activas</div></div>
+      </div>`;
+    toast('✅ Cartelera sincronizada con TMDB');
+    await renderTMDB(document.getElementById('adminMain'));
+  } catch (e) {
+    addLog('Error: ' + e.message, 'error');
+    toast('Error al conectar con TMDB', 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function closeFormModal() { document.getElementById('formModal').style.display = 'none'; }
+window.loadTab = loadTab;
+window.openPelForm = openPelForm;
+window.savePel = savePel;
+window.deletePel = deletePel;
+window.openCineForm = openCineForm;
+window.saveCine = saveCine;
+window.deleteCine = deleteCine;
+window.openFuncForm = openFuncForm;
+window.saveFunc = saveFunc;
+window.deleteFunc = deleteFunc;
+window.openUserForm = openUserForm;
+window.saveUser = saveUser;
+window.deleteUser = deleteUser;
+window.delResenaAdmin = delResenaAdmin;
+window.renderTMDB = renderTMDB;
+window.ejecutarSync = ejecutarSync;
+window.closeFormModal = closeFormModal;
+</script>
+</body>
+</html>

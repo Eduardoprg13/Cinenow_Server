@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CineNow — Cartelera completa</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header>
+  <a href="index.html" style="text-decoration:none"><h1 class="logo">🎬 CineNow</h1></a>
+  <nav><ul>
+    <li><a href="index.html">Principal</a></li>
+    <li><a href="cartelera.html">Cartelera</a></li>
+    <li><a href="regiones.html">Regiones</a></li>
+    <li><a href="contacto.html">Contacto</a></li>
+  </ul></nav>
+</header>
+
+<section class="hero hero-sm">
+  <div class="hero-content">
+    <h2>Cartelera completa</h2>
+    <p>Todas las películas disponibles por región, cine y género.</p>
+  </div>
+</section>
+
+<div class="filtros-bar">
+  <label>Región:</label>
+  <select id="fRegion"><option value="">Todas</option></select>
+  <label>Género:</label>
+  <select id="fGenero"><option value="">Todos</option>
+    <option>Acción</option><option>Comedia</option><option>Drama</option>
+    <option>Ciencia Ficción</option><option>Terror</option><option>Animación</option>
+  </select>
+  <label>Estado:</label>
+  <select id="fEstado">
+    <option value="">Todos</option>
+    <option value="cartelera">En cartelera</option>
+    <option value="proximamente">Próximamente</option>
+  </select>
+  <label>Buscar:</label>
+  <input type="text" id="fTexto" placeholder="Título, director..." style="padding:8px 12px;background:#1a1a1a;color:#fff;border:1px solid #333;border-radius:6px;font-size:.85em;">
+  <button class="filtro-reset" onclick="resetFiltros()">✕ Limpiar</button>
+</div>
+
+<section>
+  <div id="resultCount" style="color:#888;font-size:.88em;margin-bottom:16px;"></div>
+  <div id="movieList" class="peliculas"></div>
+</section>
+
+<div id="modalOverlay" class="modal-overlay">
+  <div class="modal-content">
+    <span class="modal-close">&times;</span>
+    <div id="modalBody" class="modal-body"></div>
+  </div>
+</div>
+
+<footer>🎬 2026 CineNow — Tu guía de cine regional.</footer>
+<script src="js/db.js"></script>
+<script src="js/modal.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  await DB.init();
+  await actualizarNav();
+  const fRegion = document.getElementById('fRegion');
+  DB.getRegiones().forEach(r => { const o = document.createElement('option'); o.value = r; o.textContent = r; fRegion.appendChild(o); });
+  ['fRegion','fGenero','fEstado','fTexto'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener(el.tagName === 'INPUT' ? 'input' : 'change', renderAll);
+  });
+  renderAll();
+});
+
+function resetFiltros() {
+  ['fRegion','fGenero','fEstado'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('fTexto').value = '';
+  renderAll();
+}
+
+function renderAll() {
+  const region = document.getElementById('fRegion').value;
+  const genero = document.getElementById('fGenero').value;
+  const estado = document.getElementById('fEstado').value;
+  const texto = document.getElementById('fTexto').value.toLowerCase();
+
+  const cines = DB.getCines();
+  const funciones = DB.getFunciones();
+  let pels = DB.getPeliculas();
+
+  if (genero) pels = pels.filter(p => p.genero === genero);
+  if (estado) pels = pels.filter(p => p.estado === estado);
+  if (texto) pels = pels.filter(p => p.titulo.toLowerCase().includes(texto) || (p.director || '').toLowerCase().includes(texto));
+  if (region) {
+    const cinesEnRegion = cines.filter(c => c.region === region).map(c => c.id);
+    const pelIds = [...new Set(funciones.filter(f => cinesEnRegion.includes(Number(f.cineId))).map(f => Number(f.peliculaId)))];
+    pels = pels.filter(p => pelIds.includes(Number(p.id)));
+  }
+
+  const ml = document.getElementById('movieList');
+  document.getElementById('resultCount').textContent = `${pels.length} película${pels.length !== 1 ? 's' : ''} encontrada${pels.length !== 1 ? 's' : ''}`;
+  renderCards(pels, ml, 'cartelera');
+  if (!pels.length) ml.innerHTML = '<p style="color:#555;font-style:italic">No se encontraron películas con estos filtros.</p>';
+}
+</script>
+</body>
+</html>

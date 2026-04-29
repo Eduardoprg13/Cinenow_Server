@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CineNow — Contacto</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header>
+  <a href="index.html" style="text-decoration:none"><h1 class="logo">🎬 CineNow</h1></a>
+  <nav><ul>
+    <li><a href="index.html">Principal</a></li>
+    <li><a href="cartelera.html">Cartelera</a></li>
+    <li><a href="regiones.html">Regiones</a></li>
+    <li><a href="contacto.html">Contacto</a></li>
+  </ul></nav>
+</header>
+
+<section class="hero hero-sm">
+  <div class="hero-content">
+    <h2>Contáctanos</h2>
+    <p>Dudas, sugerencias o reportes de información incorrecta.</p>
+  </div>
+</section>
+
+<section>
+  <div class="contact-wrap">
+    <div class="form-group">
+      <label>Nombre</label>
+      <input type="text" id="cNombre" placeholder="Tu nombre">
+    </div>
+    <div class="form-group">
+      <label>Correo electrónico</label>
+      <input type="email" id="cEmail" placeholder="tu@email.com">
+    </div>
+    <div class="form-group">
+      <label>Asunto</label>
+      <select id="cAsunto">
+        <option>Información incorrecta</option>
+        <option>Sugerencia de mejora</option>
+        <option>Reportar error</option>
+        <option>Agregar cine / región</option>
+        <option>Otro</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Mensaje</label>
+      <textarea id="cMensaje" rows="5" placeholder="Escribe tu mensaje..." style="padding:12px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;color:#fff;font-size:.95em;width:100%;resize:vertical;"></textarea>
+    </div>
+    <button class="auth-btn" onclick="enviarContacto()">Enviar mensaje</button>
+    <div id="successMsg" style="display:none;margin-top:16px;background:#064e3b;color:#6ee7b7;padding:14px;border-radius:8px;text-align:center;">
+      ✅ ¡Mensaje enviado! Te responderemos pronto.
+    </div>
+  </div>
+</section>
+
+<footer>🎬 2026 CineNow.</footer>
+<script src="js/db.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => { await DB.init(); await actualizarNav(); });
+function enviarContacto() {
+  const n = document.getElementById('cNombre').value.trim();
+  const e = document.getElementById('cEmail').value.trim();
+  const m = document.getElementById('cMensaje').value.trim();
+  if (!n || !e || !m) { toast('Completa todos los campos', 'error'); return; }
+  document.getElementById('successMsg').style.display = 'block';
+  document.getElementById('cNombre').value = '';
+  document.getElementById('cEmail').value = '';
+  document.getElementById('cMensaje').value = '';
+  toast('Mensaje enviado correctamente');
+}
+</script>
+</body>
+</html>
