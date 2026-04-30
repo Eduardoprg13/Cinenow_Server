@@ -3,12 +3,18 @@
 let modalOverlay, modalBody, modalClose;
 
 // Convierte posters grandes de TMDB a un tamaño más ligero para la cuadrícula.
+/**
+ * Reduce la resolución del póster para que la cuadrícula cargue más rápido.
+ */
 function posterLigero(url, fallback = 'https://via.placeholder.com/200x280/111/e50914?text=CineNow') {
   if (!url) return fallback;
   return String(url).replace('/w500/', '/w342/');
 }
 
 // Renderiza las tarjetas de películas en el contenedor
+/**
+ * Renderiza una lista de películas como tarjetas interactivas en el contenedor indicado.
+ */
 function renderCards(lista, contenedor) {
   contenedor.innerHTML = '';
 
@@ -54,6 +60,9 @@ function renderCards(lista, contenedor) {
 }
 
 // Abre el modal y carga reseñas solo cuando el usuario entra a la película.
+/**
+ * Abre el modal de detalle de una película y carga información complementaria bajo demanda.
+ */
 async function abrirModal(p) {
   if (!modalOverlay) initModal();
 
@@ -144,6 +153,9 @@ async function abrirModal(p) {
     </div>`;
 }
 
+/**
+ * Inicializa referencias y eventos del modal compartido.
+ */
 function initModal() {
   modalOverlay = document.getElementById('modalOverlay');
   modalBody = document.getElementById('modalBody');
@@ -155,12 +167,18 @@ function initModal() {
   });
 }
 
+/**
+ * Cierra el modal y oculta la superposición.
+ */
 function cerrarModal() {
   if (!modalOverlay) initModal();
   if (modalOverlay) modalOverlay.style.display = 'none';
 }
 
 // Reseñas: selección y envío.
+/**
+ * Marca visualmente la calificación seleccionada por el usuario.
+ */
 function setRating(peliculaId, value) {
   const input = document.getElementById(`ratingVal_${peliculaId}`);
   if (input) input.value = value;
@@ -169,6 +187,9 @@ function setRating(peliculaId, value) {
   });
 }
 
+/**
+ * Envía una reseña al backend después de validar contenido y calificación.
+ */
 async function enviarResena(peliculaId) {
   const rating = Number(document.getElementById(`ratingVal_${peliculaId}`)?.value || 0);
   const texto = document.getElementById(`resenaTexto_${peliculaId}`)?.value.trim() || '';
@@ -186,6 +207,9 @@ async function enviarResena(peliculaId) {
   }
 }
 
+/**
+ * Elimina una reseña previa tras confirmación del usuario.
+ */
 async function eliminarResena(id, peliculaId) {
   if (!confirm('¿Eliminar esta reseña?')) return;
   try {

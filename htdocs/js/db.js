@@ -9,6 +9,10 @@ const DB = {
   _funcionesByCine: new Map(),    // Índice de funciones por cine.
 
   // Solicitud genérica a la API con respuesta JSON.
+  /**
+   * Realiza peticiones HTTP a la API con soporte para JSON, credenciales de sesión
+   * y manejo uniforme de errores del servidor.
+   */
   async request(url, options = {}) {
     const isGet = !options.method || options.method.toUpperCase() === 'GET';
     const res = await fetch(url, {
@@ -35,11 +39,17 @@ const DB = {
   },
 
   // Clave del caché local por tipo de catálogo.
+  /**
+   * Genera la clave de almacenamiento local usada para separar el catálogo por scope.
+   */
   _cacheKey(scope = this._scope) {
     return `cinenow_catalog_${scope}`;
   },
 
   // Lee el catálogo guardado en localStorage.
+  /**
+   * Lee el catálogo previamente guardado en localStorage y valida su vigencia.
+   */
   _readCache(scope = this._scope) {
     try {
       const raw = localStorage.getItem(this._cacheKey(scope));
@@ -54,6 +64,9 @@ const DB = {
   },
 
   // Guarda el catálogo en localStorage para cargarlo más rápido.
+  /**
+   * Persiste el catálogo en localStorage para reducir llamadas repetidas al backend.
+   */
   _writeCache(data, scope = this._scope) {
     try {
       localStorage.setItem(this._cacheKey(scope), JSON.stringify({
@@ -66,6 +79,9 @@ const DB = {
   },
 
   // Construye índices en memoria para evitar recorridos repetidos.
+  /**
+   * Construye índices en memoria para consultar funciones y reseñas de forma rápida.
+   */
   _buildIndexes() {
     this._funcionesByMovie = new Map();
     this._funcionesByCine = new Map();
@@ -83,6 +99,9 @@ const DB = {
   },
 
   // Actualiza el catálogo desde el servidor y refresca los índices.
+  /**
+   * Descarga el catálogo desde la API, respeta el caché HTTP y reconstruye índices locales.
+   */
   async refresh(scope = this._scope, { force = false } = {}) {
     this._scope = scope;
     const cached = this._readCache(scope);
@@ -107,6 +126,9 @@ const DB = {
   },
 
   // Inicializa el catálogo solo una vez por página.
+  /**
+   * Inicializa el cliente cargando el catálogo una sola vez por scope.
+   */
   async init(scope = 'public') {
     if (!this._catalog || this._scope !== scope) {
       await this.refresh(scope);
@@ -115,46 +137,100 @@ const DB = {
   },
 
   // Limpia la caché local cuando cambia el contenido.
+  /**
+   * Elimina el catálogo guardado en localStorage para forzar una recarga completa.
+   */
   invalidateCache(scope = this._scope) {
     try { localStorage.removeItem(this._cacheKey(scope)); } catch (_) {}
   },
 
+  /**
+   * Devuelve la sesión activa actualmente cargada en memoria.
+   */
   getSession() { return this._catalog?.session || null; },
+  /**
+   * Indica si existe una sesión iniciada.
+   */
   isLoggedIn() { return !!this.getSession(); },
+  /**
+   * Verifica si el usuario activo tiene privilegios de administrador.
+   */
   isAdmin() { return this.getSession()?.rol === 'admin'; },
 
+  /**
+   * Retorna el objeto de configuración general recibido desde el backend.
+   */
   getConfiguracion() { return this._catalog?.configuracion || {}; },
+  /**
+   * Obtiene un valor de configuración individual con valor por defecto opcional.
+   */
   getConfig(key, fallback = null) { return this.getConfiguracion()[key] ?? fallback; },
 
+  /**
+   * Devuelve la lista de películas disponibles en el catálogo cargado.
+   */
   getPeliculas() { return this._catalog?.peliculas || []; },
+  /**
+   * Devuelve el listado de cines activos.
+   */
   getCines() { return this._catalog?.cines || []; },
+  /**
+   * Devuelve todas las funciones del catálogo actual.
+   */
   getFunciones() { return this._catalog?.funciones || []; },
+  /**
+   * Devuelve las reseñas precargadas en memoria, si existen.
+   */
   getResenas() { return this._catalog?.resenas || []; },
+  /**
+   * Devuelve la lista de regiones disponibles para filtros y navegación.
+   */
   getRegiones() { return this._catalog?.regiones || []; },
 
+  /**
+   * Busca una película por identificador.
+   */
   getPelicula(id) { return this.getPeliculas().find(p => Number(p.id) === Number(id)) || null; },
+  /**
+   * Busca un cine por identificador.
+   */
   getCine(id) { return this.getCines().find(c => Number(c.id) === Number(id)) || null; },
+  /**
+   * Busca una función por identificador.
+   */
   getFuncion(id) { return this.getFunciones().find(f => Number(f.id) === Number(id)) || null; },
 
   // Devuelve funciones de una película usando índice si existe.
+  /**
+   * Devuelve las funciones asociadas a una película específica usando el índice en memoria.
+   */
   getFuncionesPorPelicula(peliculaId) {
     const key = Number(peliculaId);
     return this._funcionesByMovie.get(key) || [];
   },
 
   // Devuelve funciones de un cine usando índice si existe.
+  /**
+   * Devuelve las funciones asociadas a un cine específico usando el índice en memoria.
+   */
   getFuncionesPorCine(cineId) {
     const key = Number(cineId);
     return this._funcionesByCine.get(key) || [];
   },
 
   // Reseñas guardadas en memoria (si el catálogo las trae).
+  /**
+   * Devuelve las reseñas almacenadas localmente para una película concreta.
+   */
   getResenasPorPelicula(peliculaId) {
     const key = Number(peliculaId);
     return this._reviewCache.get(key) || [];
   },
 
   // Obtiene reseñas de una película solo cuando realmente se necesitan.
+  /**
+   * Consulta las reseñas de una película en el backend y las memoriza para reutilizarlas.
+   */
   async fetchResenasPorPelicula(peliculaId) {
     const key = Number(peliculaId);
     if (this._reviewCache.has(key)) return this._reviewCache.get(key);
@@ -166,6 +242,9 @@ const DB = {
   },
 
   // Calcula el rating usando primero los datos agregados del catálogo.
+  /**
+   * Calcula el rating promedio de una película usando datos agregados o reseñas locales.
+   */
   promedioRating(peliculaId) {
     const pelicula = this.getPelicula(peliculaId);
     if (pelicula && pelicula.ratingPromedio !== undefined && pelicula.ratingPromedio !== null) {
@@ -178,6 +257,9 @@ const DB = {
     return Number((sum / rs.length).toFixed(1));
   },
 
+  /**
+   * Ejecuta el inicio de sesión y recarga el catálogo para reflejar la sesión nueva.
+   */
   async loginUsuario(email, password) {
     const data = await this.request('api/auth.php', {
       method: 'POST',
@@ -187,6 +269,9 @@ const DB = {
     return data.user;
   },
 
+  /**
+   * Registra un usuario nuevo y actualiza el estado de sesión.
+   */
   async registrarUsuario(nombre, email, password) {
     const data = await this.request('api/auth.php', {
       method: 'POST',
@@ -196,6 +281,9 @@ const DB = {
     return data.user;
   },
 
+  /**
+   * Cierra la sesión en el servidor y refresca la vista local.
+   */
   async cerrarSesion() {
     await this.request('api/auth.php', {
       method: 'POST',
@@ -204,17 +292,26 @@ const DB = {
     await this.refresh(this._scope, { force: true });
   },
 
+  /**
+   * Obtiene el listado administrativo de una entidad específica.
+   */
   async adminList(entity) {
     const data = await this.request(`api/admin.php?action=list&entity=${encodeURIComponent(entity)}`);
     return data.items || [];
   },
 
+  /**
+   * Solicita las métricas principales del panel administrativo.
+   */
   async getDashboard() {
     const data = await this.request('api/admin.php?action=dashboard');
     return data.data || {};
   },
 
   // Guardado administrativo con opción de posponer el refresh global.
+  /**
+   * Guarda o actualiza un registro administrativo y opcionalmente refresca el catálogo.
+   */
   async adminSave(entity, payload, options = {}) {
     const data = await this.request('api/admin.php', {
       method: 'POST',
@@ -226,6 +323,9 @@ const DB = {
     return data.item || null;
   },
 
+  /**
+   * Elimina un registro administrativo y opcionalmente refresca el catálogo.
+   */
   async adminDelete(entity, id, options = {}) {
     const data = await this.request('api/admin.php', {
       method: 'POST',
@@ -237,6 +337,9 @@ const DB = {
     return data;
   },
 
+  /**
+   * Actualiza un valor de configuración del sistema.
+   */
   async setConfig(key, value, options = {}) {
     const data = await this.request('api/admin.php', {
       method: 'POST',
@@ -248,6 +351,9 @@ const DB = {
     return data;
   },
 
+  /**
+   * Publica una reseña nueva para la película seleccionada.
+   */
   async addResena({ peliculaId, rating, texto }) {
     const data = await this.request('api/resenas.php', {
       method: 'POST',
@@ -257,6 +363,9 @@ const DB = {
     return data.item;
   },
 
+  /**
+   * Elimina una reseña existente.
+   */
   async deleteResena(id) {
     const data = await this.request('api/resenas.php', {
       method: 'POST',
@@ -267,7 +376,9 @@ const DB = {
   },
 };
 
-// Muestra notificaciones pequeñas en pantalla.
+/**
+ * Muestra notificaciones breves en pantalla para confirmar acciones o errores.
+ */
 function toast(msg, tipo = 'success') {
   let t = document.querySelector('.cn-toast');
   if (!t) {
@@ -282,14 +393,18 @@ function toast(msg, tipo = 'success') {
   window._toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
 }
 
-// Genera estrellas para ratings.
+/**
+ * Convierte un valor numérico en una representación visual de estrellas.
+ */
 function estrellas(n) {
   const full = '★'.repeat(Math.max(0, Math.min(5, Number(n) || 0)));
   const empty = '☆'.repeat(5 - full.length);
   return `<span style="color:#e50914">${full}</span><span style="color:#444">${empty}</span>`;
 }
 
-// Actualiza el menú superior según la sesión activa.
+/**
+ * Reescribe la navegación principal según el estado de autenticación del usuario.
+ */
 async function actualizarNav() {
   try { await DB.init(); } catch (_) {}
   const navEl = document.querySelector('header nav ul');

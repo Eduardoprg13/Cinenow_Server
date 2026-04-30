@@ -7,6 +7,9 @@ define('DB_USER', 'if0_41780615');
 define('DB_PASS', 'Cinenow67');
 define('DB_CHARSET', 'utf8mb4');
 
+/**
+ * Crea y reutiliza una conexión PDO contra MySQL con configuración centralizada.
+ */
 function cn_pdo(): PDO
 {
     static $pdo = null;

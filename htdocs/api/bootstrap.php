@@ -6,6 +6,9 @@ require_once __DIR__ . '/../config/db.php';
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 header('Content-Type: application/json; charset=utf-8');
 
+/**
+ * Envía una respuesta JSON uniforme al cliente y finaliza la ejecución.
+ */
 function cn_json(array $payload, int $status = 200): void
 {
     http_response_code($status);
@@ -13,6 +16,9 @@ function cn_json(array $payload, int $status = 200): void
     exit;
 }
 
+/**
+ * Lee la entrada entrante desde POST, GET o cuerpo JSON.
+ */
 function cn_input(): array
 {
     $raw = file_get_contents('php://input');
@@ -23,6 +29,9 @@ function cn_input(): array
     return $_POST ?: $_GET;
 }
 
+/**
+ * Filtra los datos de usuario para exponer solo campos seguros al frontend.
+ */
 function cn_safe_user(array $row): array
 {
     return [
@@ -34,6 +43,9 @@ function cn_safe_user(array $row): array
     ];
 }
 
+/**
+ * Recupera el usuario autenticado actual a partir de la sesión activa.
+ */
 function cn_current_user(PDO $pdo): ?array
 {
     if (empty($_SESSION['user_id'])) return null;
@@ -43,6 +55,9 @@ function cn_current_user(PDO $pdo): ?array
     return $user ? cn_safe_user($user) : null;
 }
 
+/**
+ * Exige una sesión iniciada y devuelve el usuario autenticado.
+ */
 function cn_require_login(PDO $pdo): array
 {
     $user = cn_current_user($pdo);
@@ -50,6 +65,9 @@ function cn_require_login(PDO $pdo): array
     return $user;
 }
 
+/**
+ * Exige privilegios de administrador antes de continuar con la operación.
+ */
 function cn_require_admin(PDO $pdo): array
 {
     $user = cn_require_login($pdo);
@@ -57,6 +75,9 @@ function cn_require_admin(PDO $pdo): array
     return $user;
 }
 
+/**
+ * Lee la tabla de configuración completa y la convierte en un arreglo asociativo.
+ */
 function cn_fetch_config(PDO $pdo): array
 {
     $rows = $pdo->query('SELECT clave, valor FROM configuracion')->fetchAll();
@@ -65,6 +86,9 @@ function cn_fetch_config(PDO $pdo): array
     return $cfg;
 }
 
+/**
+ * Inserta o actualiza un parámetro de configuración según exista o no previamente.
+ */
 function cn_upsert_config(PDO $pdo, string $clave, string $valor): void
 {
     $stmt = $pdo->prepare('SELECT id FROM configuracion WHERE clave = ? LIMIT 1');
@@ -79,6 +103,9 @@ function cn_upsert_config(PDO $pdo, string $clave, string $valor): void
     }
 }
 
+/**
+ * Normaliza una fila de película de MySQL al formato esperado por el frontend.
+ */
 function cn_map_pelicula(array $row): array
 {
     return [
@@ -102,6 +129,9 @@ function cn_map_pelicula(array $row): array
     ];
 }
 
+/**
+ * Normaliza una fila de cine al formato esperado por el frontend.
+ */
 function cn_map_cine(array $row): array
 {
     return [
@@ -113,6 +143,9 @@ function cn_map_cine(array $row): array
     ];
 }
 
+/**
+ * Normaliza una función y sus relaciones con película y cine.
+ */
 function cn_map_funcion(array $row): array
 {
     $horarios = $row['horarios'] ?? '[]';
@@ -138,6 +171,9 @@ function cn_map_funcion(array $row): array
     return $func;
 }
 
+/**
+ * Normaliza una reseña y estandariza la fecha para mostrarla en interfaz.
+ */
 function cn_map_resena(array $row): array
 {
     return [

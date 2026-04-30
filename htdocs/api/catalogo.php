@@ -6,6 +6,9 @@ $pdo = cn_pdo();
 $session = cn_current_user($pdo);
 $scope = strtolower(trim((string)($_GET['scope'] ?? 'public')));
 
+/**
+ * Carga las películas activas incluyendo rating promedio y conteo de reseñas.
+ */
 // Películas con estadísticas agregadas para evitar cargar todas las reseñas.
 $peliculas = [];
 $sqlPeliculas = "SELECT p.id, p.tmdb_id, p.titulo, p.genero, p.clasificacion, p.duracion, p.director, p.anio,
@@ -27,12 +30,18 @@ foreach ($stmt->fetchAll() as $row) {
     $peliculas[] = cn_map_pelicula($row);
 }
 
+/**
+ * Carga los cines activos que se mostrarán en navegación y filtros.
+ */
 $cines = [];
 $stmt = $pdo->query("SELECT id, nombre, region, direccion, activo FROM cines WHERE activo = 1 ORDER BY region ASC, nombre ASC");
 foreach ($stmt->fetchAll() as $row) {
     $cines[] = cn_map_cine($row);
 }
 
+/**
+ * Carga las funciones disponibles vinculando película y cine para enriquecer la vista.
+ */
 $funciones = [];
 $stmt = $pdo->query("SELECT f.id, f.pelicula_id, f.cine_id, f.horarios, f.precio, f.fecha_inicio, f.fecha_fin,
                              p.titulo AS pelicula_titulo,
@@ -46,14 +55,23 @@ foreach ($stmt->fetchAll() as $row) {
     $funciones[] = cn_map_funcion($row);
 }
 
+/**
+ * Obtiene la configuración global del sistema desde la tabla correspondiente.
+ */
 $config = cn_fetch_config($pdo);
 
+/**
+ * Recupera las regiones únicas donde existen cines activos.
+ */
 $regiones = [];
 $stmt = $pdo->query("SELECT DISTINCT region FROM cines WHERE activo = 1 ORDER BY region ASC");
 foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $region) {
     $regiones[] = $region;
 }
 
+/**
+ * Construye la respuesta final que consumirá el frontend.
+ */
 $response = [
     'ok' => true,
     'session' => $session,
@@ -64,6 +82,9 @@ $response = [
     'configuracion' => $config,
 ];
 
+/**
+ * Define caché HTTP ligero para reducir tráfico y aprovechar revalidación mediante ETag.
+ */
 // Cache HTTP ligero para que el navegador revalide en vez de bajar todo otra vez.
 $payload = json_encode($response, JSON_UNESCAPED_UNICODE);
 $etag = '"' . sha1($payload) . '"';

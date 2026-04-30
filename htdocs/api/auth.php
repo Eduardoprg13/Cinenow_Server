@@ -6,10 +6,16 @@ $pdo = cn_pdo();
 $input = cn_input();
 $action = $input['action'] ?? $_GET['action'] ?? 'me';
 
+/**
+ * Devuelve la sesión actual del usuario autenticado.
+ */
 if ($action === 'me') {
     cn_json(['ok' => true, 'user' => cn_current_user($pdo)]);
 }
 
+/**
+ * Cierra sesión y elimina la información asociada del navegador y del servidor.
+ */
 if ($action === 'logout') {
     $_SESSION = [];
     if (ini_get('session.use_cookies')) {
@@ -23,6 +29,9 @@ if ($action === 'logout') {
     cn_json(['ok' => true, 'message' => 'Sesión cerrada']);
 }
 
+/**
+ * Verifica credenciales y crea una nueva sesión autenticada.
+ */
 if ($action === 'login') {
     $email = trim((string)($input['email'] ?? ''));
     $password = (string)($input['password'] ?? '');
@@ -43,6 +52,9 @@ if ($action === 'login') {
     cn_json(['ok' => true, 'user' => cn_safe_user($user)]);
 }
 
+/**
+ * Registra un usuario nuevo, guarda su contraseña con hash e inicia sesión.
+ */
 if ($action === 'register') {
     $nombre = trim((string)($input['nombre'] ?? ''));
     $email = trim((string)($input['email'] ?? ''));

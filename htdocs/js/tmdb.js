@@ -17,12 +17,18 @@ const TMDB_GENEROS = {
   10770:'Película de TV', 53:'Thriller', 10752:'Bélica', 37:'Western'
 };
 
+/**
+ * Convierte la clasificación original de TMDB al esquema interno del proyecto.
+ */
 function mapClasificacion(rating) {
   const map = { 'G':'A', 'PG':'B', 'PG-13':'B15', 'R':'C', 'NC-17':'D' };
   return map[rating] || 'B';
 }
 
 const TMDB = {
+  /**
+   * Ejecuta una petición a la API de TMDB con los parámetros estándar del proyecto.
+   */
   async fetch(endpoint, params = {}) {
     const url = new URL(`${TMDB_CONFIG.baseUrl}${endpoint}`);
     url.searchParams.set('api_key', TMDB_CONFIG.apiKey);
@@ -33,6 +39,9 @@ const TMDB = {
     return res.json();
   },
 
+  /**
+   * Obtiene películas actualmente en cartelera desde TMDB.
+   */
   async getNowPlaying() {
     const [data, data2] = await Promise.all([
       this.fetch('/movie/now_playing', { region: TMDB_CONFIG.region, page: 1 }),
@@ -41,12 +50,18 @@ const TMDB = {
     return [...(data.results || []), ...(data2.results || [])];
   },
 
+  /**
+   * Obtiene próximas películas desde TMDB.
+   */
   async getUpcoming() {
     const data = await this.fetch('/movie/upcoming', { region: TMDB_CONFIG.region, page: 1 });
     return data.results || [];
   },
 
   /** Distribuye una película recién agregada en todos los cines activos */
+  /**
+   * Solicita al backend distribuir una película nueva en los cines activos.
+   */
   async distribuirPeliculaEnCines(peliculaId) {
     try {
       const data = await DB.request('api/admin.php', {
@@ -63,10 +78,16 @@ const TMDB = {
     }
   },
 
+  /**
+   * Trae la ficha completa de una película con videos y créditos.
+   */
   async getDetails(movieId) {
     return await this.fetch(`/movie/${movieId}`, { append_to_response: 'videos,credits' });
   },
 
+  /**
+   * Normaliza la información de TMDB al formato interno que usa CineNow.
+   */
   async convertirPelicula(movie, estado = 'cartelera') {
     const details = await this.getDetails(movie.id);
     const director = details.credits?.crew?.find(c => c.job === 'Director')?.name || '';
@@ -90,6 +111,9 @@ const TMDB = {
     };
   },
 
+  /**
+   * Sincroniza el catálogo local con cartelera y próximos estrenos de TMDB.
+   */
   async sincronizar(onProgress) {
     const log = (msg, tipo = 'info') => {
       console.log(`[TMDB Sync] ${msg}`);
@@ -172,6 +196,9 @@ const TMDB = {
     return resumen;
   },
 
+  /**
+   * Ejecuta la sincronización automática solo si ya venció el intervalo configurado.
+   */
   async autoSync() {
     const lastSync = DB.getConfig('tmdb_last_sync_at', '');
     if (lastSync) {
@@ -187,6 +214,9 @@ const TMDB = {
     }
   },
 
+  /**
+   * Devuelve información legible de la última sincronización registrada.
+   */
   getLastSyncInfo() {
     const lastSync = DB.getConfig('tmdb_last_sync_at', '');
     if (!lastSync) return null;

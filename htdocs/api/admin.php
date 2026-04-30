@@ -8,6 +8,9 @@ $input = cn_input();
 $action = $input['action'] ?? $_GET['action'] ?? 'dashboard';
 $entity = $input['entity'] ?? $_GET['entity'] ?? '';
 
+/**
+ * Devuelve el listado administrativo de una entidad según el tipo solicitado.
+ */
 function cn_entity_list(PDO $pdo, string $entity): array
 {
     switch ($entity) {
@@ -50,6 +53,9 @@ function cn_entity_list(PDO $pdo, string $entity): array
     }
 }
 
+/**
+ * Calcula métricas resumidas para el panel principal de administración.
+ */
 function cn_dashboard(PDO $pdo): array
 {
     $counts = [
@@ -81,6 +87,9 @@ function cn_dashboard(PDO $pdo): array
     return $counts;
 }
 
+/**
+ * Crea funciones base para una película en todos los cines activos si aún no existen.
+ */
 function cn_distribuir_pelicula(PDO $pdo, int $peliculaId): int
 {
     $stmtCines = $pdo->query("SELECT id FROM cines WHERE activo = 1");
@@ -109,6 +118,9 @@ function cn_distribuir_pelicula(PDO $pdo, int $peliculaId): int
     return $asignados;
 }
 
+/**
+ * Inserta o actualiza una película y aplica distribución automática cuando proviene de TMDB.
+ */
 function cn_save_pelicula(PDO $pdo, array $input): array
 {
     $id = (int)($input['id'] ?? 0);
@@ -150,6 +162,9 @@ function cn_save_pelicula(PDO $pdo, array $input): array
     return cn_map_pelicula($stmt->fetch());
 }
 
+/**
+ * Inserta o actualiza un cine validando los campos obligatorios.
+ */
 function cn_save_cine(PDO $pdo, array $input): array
 {
     $id = (int)($input['id'] ?? 0);
@@ -174,6 +189,9 @@ function cn_save_cine(PDO $pdo, array $input): array
     return cn_map_cine($stmt->fetch());
 }
 
+/**
+ * Inserta o actualiza una función con horarios, precio y rango de fechas.
+ */
 function cn_save_funcion(PDO $pdo, array $input): array
 {
     $id = (int)($input['id'] ?? 0);
@@ -212,6 +230,9 @@ function cn_save_funcion(PDO $pdo, array $input): array
     return cn_map_funcion($stmt->fetch());
 }
 
+/**
+ * Inserta o actualiza un usuario con hash de contraseña y control de unicidad.
+ */
 function cn_save_usuario(PDO $pdo, array $input): array
 {
     $id = (int)($input['id'] ?? 0);
@@ -258,6 +279,9 @@ function cn_save_usuario(PDO $pdo, array $input): array
     ];
 }
 
+/**
+ * Enrutamiento principal de acciones administrativas.
+ */
 // ── Enrutamiento de acciones ────────────────────────
 if ($action === 'dashboard') {
     cn_json(['ok' => true, 'data' => cn_dashboard($pdo)]);

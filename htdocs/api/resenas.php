@@ -6,6 +6,9 @@ $pdo = cn_pdo();
 $input = cn_input();
 $action = $input['action'] ?? $_GET['action'] ?? 'list';
 
+/**
+ * Lista las reseñas, opcionalmente filtradas por película.
+ */
 if ($action === 'list') {
     $where = '';
     $params = [];
@@ -26,6 +29,9 @@ if ($action === 'list') {
     cn_json(['ok' => true, 'items' => $rows]);
 }
 
+/**
+ * Crea una reseña nueva validando sesión, puntuación y texto.
+ */
 if ($action === 'create') {
     $user = cn_require_login($pdo);
     $peliculaId = (int)($input['peliculaId'] ?? 0);
@@ -58,6 +64,9 @@ if ($action === 'create') {
     cn_json(['ok' => true, 'item' => $item]);
 }
 
+/**
+ * Elimina una reseña si pertenece al usuario o si el usuario es administrador.
+ */
 if ($action === 'delete') {
     $user = cn_require_login($pdo);
     $id = (int)($input['id'] ?? $_GET['id'] ?? 0);
