@@ -1,0 +1,85 @@
+CREATE DATABASE IF NOT EXISTS cinenow_v2
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+USE cinenow_v2;
+
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS resenas;
+DROP TABLE IF EXISTS funciones;
+DROP TABLE IF EXISTS peliculas;
+DROP TABLE IF EXISTS cines;
+DROP TABLE IF EXISTS usuarios;
+DROP TABLE IF EXISTS configuracion;
+SET FOREIGN_KEY_CHECKS = 1;
+
+CREATE TABLE usuarios (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(120) NOT NULL,
+  email VARCHAR(150) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  rol ENUM('admin','usuario') NOT NULL DEFAULT 'usuario',
+  fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE cines (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(160) NOT NULL,
+  region VARCHAR(120) NOT NULL,
+  direccion VARCHAR(255) DEFAULT NULL,
+  activo TINYINT(1) NOT NULL DEFAULT 1
+) ENGINE=InnoDB;
+
+CREATE TABLE peliculas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tmdb_id INT NULL UNIQUE,
+  titulo VARCHAR(200) NOT NULL,
+  genero VARCHAR(80) DEFAULT NULL,
+  clasificacion VARCHAR(10) DEFAULT NULL,
+  duracion VARCHAR(30) DEFAULT NULL,
+  director VARCHAR(160) DEFAULT NULL,
+  anio INT DEFAULT NULL,
+  img VARCHAR(500) DEFAULT NULL,
+  descripcion TEXT,
+  trailer VARCHAR(500) DEFAULT NULL,
+  estado ENUM('cartelera','proximamente','inactivo') NOT NULL DEFAULT 'cartelera',
+  origen ENUM('manual','tmdb') NOT NULL DEFAULT 'manual',
+  creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE funciones (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  pelicula_id INT NOT NULL,
+  cine_id INT NOT NULL,
+  horarios JSON NOT NULL,
+  precio DECIMAL(10,2) NOT NULL DEFAULT 0,
+  fecha_inicio DATE DEFAULT NULL,
+  fecha_fin DATE DEFAULT NULL,
+  CONSTRAINT fk_funcion_pelicula FOREIGN KEY (pelicula_id) REFERENCES peliculas(id) ON DELETE CASCADE,
+  CONSTRAINT fk_funcion_cine FOREIGN KEY (cine_id) REFERENCES cines(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE resenas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  pelicula_id INT NOT NULL,
+  usuario_id INT NOT NULL,
+  rating TINYINT UNSIGNED NOT NULL,
+  texto TEXT NOT NULL,
+  fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_resena_pelicula FOREIGN KEY (pelicula_id) REFERENCES peliculas(id) ON DELETE CASCADE,
+  CONSTRAINT fk_resena_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE configuracion (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  clave VARCHAR(120) NOT NULL UNIQUE,
+  valor LONGTEXT NOT NULL
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_peliculas_estado_titulo ON peliculas (estado, titulo);
+CREATE INDEX idx_peliculas_tmdb_id ON peliculas (tmdb_id);
+CREATE INDEX idx_cines_region_activo ON cines (region, activo, nombre);
+CREATE INDEX idx_funciones_pelicula_cine ON funciones (pelicula_id, cine_id);
+CREATE INDEX idx_funciones_cine ON funciones (cine_id);
+CREATE INDEX idx_resenas_pelicula_fecha ON resenas (pelicula_id, fecha);
+CREATE INDEX idx_resenas_usuario_fecha ON resenas (usuario_id, fecha);
