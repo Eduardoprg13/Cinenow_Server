@@ -34,8 +34,10 @@ const TMDB = {
   },
 
   async getNowPlaying() {
-    const data = await this.fetch('/movie/now_playing', { region: TMDB_CONFIG.region, page: 1 });
-    const data2 = await this.fetch('/movie/now_playing', { region: TMDB_CONFIG.region, page: 2 });
+    const [data, data2] = await Promise.all([
+      this.fetch('/movie/now_playing', { region: TMDB_CONFIG.region, page: 1 }),
+      this.fetch('/movie/now_playing', { region: TMDB_CONFIG.region, page: 2 })
+    ]);
     return [...(data.results || []), ...(data2.results || [])];
   },
 
@@ -109,13 +111,13 @@ const TMDB = {
         const existente = existentes.find(p => Number(p.tmdbId) === Number(movie.id));
         if (existente && existente.estado === 'proximamente') {
           existente.estado = 'cartelera';
-          await DB.adminSave('peliculas', existente);
+          await DB.adminSave('peliculas', existente, { refresh: false });
           actualizadas++;
         }
         continue;
       }
       const pel = await this.convertirPelicula(movie, 'cartelera');
-      const saved = await DB.adminSave('peliculas', pel);
+      const saved = await DB.adminSave('peliculas', pel, { refresh: false });
       
       // Obtenemos el ID de forma robusta (puede venir en .id, .item.id, etc.)
       const nuevoId = saved?.id || saved?.item?.id || saved?.data?.id;
@@ -132,7 +134,7 @@ const TMDB = {
       if (!movie.poster_path) continue;
       if (tmdbIdsExistentes.has(movie.id)) continue;
       const pel = await this.convertirPelicula(movie, 'proximamente');
-      const saved = await DB.adminSave('peliculas', pel);
+      const saved = await DB.adminSave('peliculas', pel, { refresh: false });
       
       const nuevoId = saved?.id || saved?.item?.id || saved?.data?.id;
       console.log('[TMDB] Nueva próxima guardada:', pel.titulo, '| ID:', nuevoId);
@@ -148,12 +150,15 @@ const TMDB = {
     for (const p of DB.getPeliculas().filter(p => p.tmdbId)) {
       if (p.estado === 'cartelera' && !tmdbIdsActivos.has(Number(p.tmdbId))) {
         p.estado = 'inactivo';
-        await DB.adminSave('peliculas', p);
+        await DB.adminSave('peliculas', p, { refresh: false });
         desactivadas++;
       }
     }
 
-    await DB.setConfig('tmdb_last_sync_at', new Date().toISOString());
+    await DB.setConfig('tmdb_last_sync_at', new Date().toISOString(), { refresh: false });
+
+    // Un solo refresh al final evita decenas de recargas completas del catálogo.
+    await DB.refresh(DB._scope, { force: true });
 
     const resumen = {
       agregadas,

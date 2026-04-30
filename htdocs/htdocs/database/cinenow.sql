@@ -76,6 +76,16 @@ CREATE TABLE configuracion (
   valor LONGTEXT NOT NULL
 ) ENGINE=InnoDB;
 
+
+-- Índices para acelerar filtros, joins y búsquedas frecuentes.
+CREATE INDEX idx_peliculas_estado_titulo ON peliculas (estado, titulo);
+CREATE INDEX idx_peliculas_tmdb_id ON peliculas (tmdb_id);
+CREATE INDEX idx_cines_region_activo ON cines (region, activo, nombre);
+CREATE INDEX idx_funciones_pelicula_cine ON funciones (pelicula_id, cine_id);
+CREATE INDEX idx_funciones_cine ON funciones (cine_id);
+CREATE INDEX idx_resenas_pelicula_fecha ON resenas (pelicula_id, fecha);
+CREATE INDEX idx_resenas_usuario_fecha ON resenas (usuario_id, fecha);
+
 INSERT INTO usuarios (nombre, email, password, rol, fecha) VALUES
 ('Admin CineNow', 'admin@cinenow.mx', '$2y$12$XKKIiYoM1fnijZNMyzsXM.IeVJHUpck/HcD0bIraQlvxlm2YIZGEq', 'admin', '2025-01-01 00:00:00'),
 ('Usuario Demo', 'demo@cinenow.mx', '$2y$12$MXxv/QW3TkOXh46UXTXb3uzmMOQbfZMsA0JS9D6EqirvT4OfMtDF6', 'usuario', '2025-03-01 00:00:00');

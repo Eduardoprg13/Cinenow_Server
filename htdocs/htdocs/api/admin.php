@@ -61,14 +61,17 @@ function cn_dashboard(PDO $pdo): array
         'cartelera' => (int)$pdo->query("SELECT COUNT(*) FROM peliculas WHERE estado = 'cartelera'")->fetchColumn(),
     ];
 
-    $top = $pdo->query("SELECT p.id, p.titulo, COUNT(r.id) AS total_resenas, COALESCE(ROUND(AVG(r.rating),1), 0) AS rating
+    $top = $pdo->query("SELECT p.id, p.titulo, COALESCE(rr.total_resenas, 0) AS total_resenas, COALESCE(rr.rating, 0) AS rating
                          FROM peliculas p
-                         LEFT JOIN resenas r ON r.pelicula_id = p.id
-                         GROUP BY p.id
+                         LEFT JOIN (
+                             SELECT pelicula_id, COUNT(*) AS total_resenas, ROUND(AVG(rating),1) AS rating
+                             FROM resenas
+                             GROUP BY pelicula_id
+                         ) rr ON rr.pelicula_id = p.id
                          ORDER BY total_resenas DESC, p.titulo ASC
                          LIMIT 5")->fetchAll();
 
-    $counts['topReseñadas'] = array_map(fn($row) => [
+    $counts['topResenadas'] = array_map(fn($row) => [
         'id' => (int)$row['id'],
         'titulo' => $row['titulo'],
         'totalResenas' => (int)$row['total_resenas'],

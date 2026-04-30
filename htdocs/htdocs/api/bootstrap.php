@@ -95,6 +95,8 @@ function cn_map_pelicula(array $row): array
         'trailer' => $row['trailer'] ?? '',
         'estado' => $row['estado'] ?? 'cartelera',
         'origen' => $row['origen'] ?? 'manual',
+        'ratingPromedio' => isset($row['rating_promedio']) ? (float)$row['rating_promedio'] : (isset($row['ratingPromedio']) ? (float)$row['ratingPromedio'] : 0),
+        'resenasCount' => isset($row['resenas_count']) ? (int)$row['resenas_count'] : (isset($row['resenasCount']) ? (int)$row['resenasCount'] : 0),
         'creadoEn' => $row['creado_en'] ?? null,
         'actualizadoEn' => $row['actualizado_en'] ?? null,
     ];
