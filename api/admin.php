@@ -78,6 +78,34 @@ function cn_dashboard(PDO $pdo): array
     return $counts;
 }
 
+function cn_distribuir_pelicula(PDO $pdo, int $peliculaId): int
+{
+    $stmtCines = $pdo->query("SELECT id FROM cines WHERE activo = 1");
+    $cines = $stmtCines->fetchAll(PDO::FETCH_COLUMN);
+
+    $horariosDefault = ["16:00", "19:00", "22:00"];
+    $precioDefault = 85.00;
+    $asignados = 0;
+
+    foreach ($cines as $cineId) {
+        $stmtCheck = $pdo->prepare("SELECT id FROM funciones WHERE pelicula_id = ? AND cine_id = ?");
+        $stmtCheck->execute([$peliculaId, $cineId]);
+        if ($stmtCheck->fetchColumn()) continue;
+
+        $stmtInsert = $pdo->prepare("INSERT INTO funciones (pelicula_id, cine_id, horarios, precio, fecha_inicio) VALUES (?, ?, ?, ?, ?)");
+        $stmtInsert->execute([
+            $peliculaId,
+            $cineId,
+            json_encode($horariosDefault, JSON_UNESCAPED_UNICODE),
+            $precioDefault,
+            date('Y-m-d')
+        ]);
+        $asignados++;
+    }
+
+    return $asignados;
+}
+
 function cn_save_pelicula(PDO $pdo, array $input): array
 {
     $id = (int)($input['id'] ?? 0);
@@ -98,6 +126,7 @@ function cn_save_pelicula(PDO $pdo, array $input): array
 
     if ($data['titulo'] === '') cn_json(['ok' => false, 'error' => 'El título es obligatorio'], 422);
 
+    $nueva = false;
     if ($id > 0) {
         $stmt = $pdo->prepare('UPDATE peliculas SET tmdb_id = ?, titulo = ?, genero = ?, clasificacion = ?, duracion = ?, director = ?, anio = ?, img = ?, descripcion = ?, trailer = ?, estado = ?, origen = ? WHERE id = ?');
         $stmt->execute([$data['tmdb_id'], $data['titulo'], $data['genero'], $data['clasificacion'], $data['duracion'], $data['director'], $data['anio'], $data['img'], $data['descripcion'], $data['trailer'], $data['estado'], $data['origen'], $id]);
@@ -105,6 +134,12 @@ function cn_save_pelicula(PDO $pdo, array $input): array
         $stmt = $pdo->prepare('INSERT INTO peliculas (tmdb_id, titulo, genero, clasificacion, duracion, director, anio, img, descripcion, trailer, estado, origen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $stmt->execute([$data['tmdb_id'], $data['titulo'], $data['genero'], $data['clasificacion'], $data['duracion'], $data['director'], $data['anio'], $data['img'], $data['descripcion'], $data['trailer'], $data['estado'], $data['origen']]);
         $id = (int)$pdo->lastInsertId();
+        $nueva = true;
+    }
+
+    // 🔁 Distribuir automáticamente si es nueva y viene de TMDB
+    if ($nueva && $data['origen'] === 'tmdb') {
+        cn_distribuir_pelicula($pdo, $id);
     }
 
     $stmt = $pdo->prepare('SELECT id, tmdb_id, titulo, genero, clasificacion, duracion, director, anio, img, descripcion, trailer, estado, origen, creado_en, actualizado_en FROM peliculas WHERE id = ? LIMIT 1');
@@ -220,6 +255,7 @@ function cn_save_usuario(PDO $pdo, array $input): array
     ];
 }
 
+// ── Enrutamiento de acciones ────────────────────────
 if ($action === 'dashboard') {
     cn_json(['ok' => true, 'data' => cn_dashboard($pdo)]);
 }
@@ -283,6 +319,15 @@ if ($action === 'delete') {
     }
 
     cn_json(['ok' => true, 'message' => 'Registro eliminado']);
+}
+
+// ── NUEVA ACCIÓN: distribuir película en todos los cines activos ──
+if ($action === 'distribuir_pelicula') {
+    $peliculaId = (int)($input['peliculaId'] ?? 0);
+    if ($peliculaId <= 0) cn_json(['ok' => false, 'error' => 'ID de película inválido'], 422);
+
+    $asignados = cn_distribuir_pelicula($pdo, $peliculaId);
+    cn_json(['ok' => true, 'asignados' => $asignados, 'message' => "Película asignada a $asignados cines"]);
 }
 
 cn_json(['ok' => false, 'error' => 'Acción no válida'], 400);

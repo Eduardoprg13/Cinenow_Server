@@ -4,6 +4,21 @@
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CineNow — Regiones</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* Pequeño retoque para las tarjetas de cine dentro del modal */
+    .cine-card-click {
+      background: #1a1a1a;
+      border-radius: 8px;
+      padding: 14px;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+      border: 1px solid #2a2a2a;
+    }
+    .cine-card-click:hover {
+      background: #222;
+      border-color: #e50914;
+    }
+  </style>
 </head>
 <body>
 <header>
@@ -41,20 +56,25 @@
 document.addEventListener('DOMContentLoaded', async () => {
   await DB.init();
   await actualizarNav();
+
   const container = document.getElementById('regionesContainer');
   const cines = DB.getCines();
   const funciones = DB.getFunciones();
   const peliculas = DB.getPeliculas();
 
+  // Agrupar cines por región
   const regionMap = {};
   cines.forEach(c => {
     if (!regionMap[c.region]) regionMap[c.region] = [];
     regionMap[c.region].push(c);
   });
 
+  // Construir la vista de regiones
+  container.innerHTML = '';
   Object.keys(regionMap).sort().forEach(region => {
     const card = document.createElement('div');
     card.className = 'region-card';
+    card.dataset.region = region;
     const cinesRegion = regionMap[region];
     const listItems = cinesRegion.map(cine => {
       const pelIds = [...new Set(funciones.filter(f => Number(f.cineId) === Number(cine.id)).map(f => Number(f.peliculaId)))];
@@ -71,7 +91,94 @@ document.addEventListener('DOMContentLoaded', async () => {
     card.innerHTML = `<h3>📍 ${region}</h3><ul class="cine-list">${listItems}</ul>`;
     container.appendChild(card);
   });
+
+  // Click en cualquier región → modal con cines
+  container.addEventListener('click', (e) => {
+    const regionCard = e.target.closest('.region-card');
+    if (regionCard) {
+      const region = regionCard.dataset.region;
+      if (region) mostrarCinesRegion(region, regionMap, funciones, peliculas);
+    }
+  });
+
+  // Cierre del modal genérico (ya configurado en modal.js, pero nos aseguramos)
+  document.querySelector('.modal-close').addEventListener('click', cerrarModal);
+  document.getElementById('modalOverlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('modalOverlay')) cerrarModal();
+  });
 });
+
+/**
+ * Muestra en el modal la lista de cines de una región.
+ */
+function mostrarCinesRegion(region, regionMap, funciones, peliculas) {
+  const cinesRegion = regionMap[region] || [];
+  let html = `<h2 style="color:#e50914; margin-bottom:20px;">🎭 Cines en ${region}</h2>`;
+  
+  if (!cinesRegion.length) {
+    html += '<p style="color:#555;">No hay cines registrados en esta región.</p>';
+  } else {
+    html += '<div style="display:flex; flex-direction:column; gap:12px;">';
+    cinesRegion.forEach(cine => {
+      const pelIds = [...new Set(funciones.filter(f => Number(f.cineId) === Number(cine.id)).map(f => Number(f.peliculaId)))];
+      const pelsCine = peliculas.filter(p => pelIds.includes(Number(p.id)));
+      html += `
+        <div class="cine-card-click" data-cine-id="${cine.id}">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-weight:600; font-size:1em;">${cine.nombre}</div>
+              <div style="color:#888; font-size:0.8em;">📍 ${cine.direccion || 'Sin dirección'}</div>
+            </div>
+            <span class="badge" style="background:#e50914;">${pelsCine.length} películas</span>
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+  }
+
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalOverlay').style.display = 'flex';
+
+  // Asignar evento a cada cine listado
+  document.querySelectorAll('.cine-card-click').forEach(card => {
+    card.addEventListener('click', (e) => {
+      const cineId = Number(card.dataset.cineId);
+      const cine = cinesRegion.find(c => c.id === cineId);
+      if (cine) mostrarPeliculasCine(cine, funciones, peliculas);
+    });
+  });
+}
+
+/**
+ * Muestra en el modal las películas disponibles en un cine.
+ */
+function mostrarPeliculasCine(cine, funciones, peliculas) {
+  const pelIds = [...new Set(funciones.filter(f => Number(f.cineId) === Number(cine.id)).map(f => Number(f.peliculaId)))];
+  const pelsCine = peliculas.filter(p => pelIds.includes(Number(p.id)));
+
+  let html = `<h2 style="color:#e50914; margin-bottom:8px;">🎬 ${cine.nombre}</h2>
+              <p style="color:#888; margin-bottom:20px;">${cine.region} — ${pelsCine.length} película(s)</p>`;
+
+  if (!pelsCine.length) {
+    html += '<p style="color:#555;">No hay películas en este cine actualmente.</p>';
+  } else {
+    html += '<div id="peliculasCineContainer" class="peliculas" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr));"></div>';
+  }
+
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalOverlay').style.display = 'flex';
+
+  if (pelsCine.length) {
+    const cont = document.getElementById('peliculasCineContainer');
+    // renderCards está definido en modal.js y usa el modal de película al hacer clic
+    renderCards(pelsCine, cont, 'cartelera');
+  }
+}
+
+// Aseguramos que cerrarModal sea accesible (ya está en modal.js pero la referenciamos)
+function cerrarModal() {
+  document.getElementById('modalOverlay').style.display = 'none';
+}
 </script>
 </body>
 </html>

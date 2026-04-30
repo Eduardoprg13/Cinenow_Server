@@ -4,7 +4,7 @@ declare(strict_types=1);
 define('DB_HOST', 'sql208.infinityfree.com');
 define('DB_NAME', 'if0_41780615_cinenow');
 define('DB_USER', 'if0_41780615');
-define('DB_PASS', 'Mitabled7');
+define('DB_PASS', 'Cinenow67');
 define('DB_CHARSET', 'utf8mb4');
 
 function cn_pdo(): PDO

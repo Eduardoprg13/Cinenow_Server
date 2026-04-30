@@ -44,6 +44,23 @@ const TMDB = {
     return data.results || [];
   },
 
+  /** Distribuye una película recién agregada en todos los cines activos */
+  async distribuirPeliculaEnCines(peliculaId) {
+    try {
+      const data = await DB.request('api/admin.php', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'distribuir_pelicula', peliculaId })
+      });
+      if (data && data.ok) {
+        console.log(`[TMDB] Película ${peliculaId} distribuida en ${data.asignados || 'varios'} cines.`);
+      } else {
+        console.warn(`[TMDB] La distribución de la película ${peliculaId} no se completó:`, data?.error || '');
+      }
+    } catch (e) {
+      console.warn(`[TMDB] No se pudo distribuir película ${peliculaId}:`, e.message);
+    }
+  },
+
   async getDetails(movieId) {
     return await this.fetch(`/movie/${movieId}`, { append_to_response: 'videos,credits' });
   },
@@ -98,7 +115,14 @@ const TMDB = {
         continue;
       }
       const pel = await this.convertirPelicula(movie, 'cartelera');
-      await DB.adminSave('peliculas', pel);
+      const saved = await DB.adminSave('peliculas', pel);
+      
+      // Obtenemos el ID de forma robusta (puede venir en .id, .item.id, etc.)
+      const nuevoId = saved?.id || saved?.item?.id || saved?.data?.id;
+      console.log('[TMDB] Nueva película guardada:', pel.titulo, '| ID:', nuevoId);
+      if (nuevoId) {
+        await this.distribuirPeliculaEnCines(nuevoId);
+      }
       tmdbIdsExistentes.add(movie.id);
       agregadas++;
       await new Promise(r => setTimeout(r, 120));
@@ -108,7 +132,13 @@ const TMDB = {
       if (!movie.poster_path) continue;
       if (tmdbIdsExistentes.has(movie.id)) continue;
       const pel = await this.convertirPelicula(movie, 'proximamente');
-      await DB.adminSave('peliculas', pel);
+      const saved = await DB.adminSave('peliculas', pel);
+      
+      const nuevoId = saved?.id || saved?.item?.id || saved?.data?.id;
+      console.log('[TMDB] Nueva próxima guardada:', pel.titulo, '| ID:', nuevoId);
+      if (nuevoId) {
+        await this.distribuirPeliculaEnCines(nuevoId);
+      }
       tmdbIdsExistentes.add(movie.id);
       proximasAgregadas++;
       await new Promise(r => setTimeout(r, 120));
